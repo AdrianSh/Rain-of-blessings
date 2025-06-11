@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Rain of blessings</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #e9eef2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            padding-top: 20px;
+        }
+
+        h1 {
+            color: #2c3e50;
+        }
+
+        .instructions {
+            margin-bottom: 20px;
+            color: #555;
+            max-width: 800px;
+            text-align: center;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: calc(100vh - 400px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+
+        canvas {
+            background: #ffffff;
+            display: block;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+            /* optional, preserves pixel art look */
+        }
+
+        /* NEW: This hides the input box off-screen, but keeps it focusable */
+        #text-input {
+            border: 1px solid lightgray;
+            border-radius: 5px;
+            width: 500px;
+            font-size: large;
+            padding: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        #learningHelper {
+            color: darkcyan;
+        }
+
+        #gameOptions {
+            flex: auto;
+        }
+
+        #actions {
+            flex: auto;
+        }
+
+        #startingSection {
+            border-radius: 4px;
+            padding: .1rem;
+            color: gray;
+            border-color: gray;
+            font-size: .9rem;
+        }
+
+        #startGameBtn {
+            border-radius: 5px;
+            border: 1px solid green;
+            background: green;
+            color: white;
+            font-weight: bolder;
+            padding: .1rem 1rem;
+        }
+
+        #startGameBtn:hover {
+            background: rgb(2, 46, 2);
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Rain of blessings</h1>
+    <p class="instructions">Type the English translation. The game will check it as you type!</p>
+
+    <div id="game-container">
+        <canvas id='gameCanvas' width='800' height='600'></canvas>
+    </div>
+
+    <!-- This input is now invisible to the user but will capture keyboard input -->
+    <input type="text" id="text-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <h3 id="learningHelper"></h3>
+    <h2 id="sectionName"></h2>
+    <div id="actions">
+        <select id="startingSection"></select>
+        <button id="startGameBtn">START</button>
+    </div>
+    <div id="gameOptions">
+        <div>Random word order: <input type="checkbox" id="randomWordOrder"></div>
+        <div>Learning mode: <input type="checkbox" id="learningMode" checked></div>
+        <div>Learning mode delay between word: <input type="number" id="learningModeDelay" value="2000"></div>
+        <div>Initial speed: <input type="number" id="speed" value="100"></div>
+    </div>
+
+    <!-- Load scripts -->
+    <script src='http://cdn.html5quintus.com/v0.2.0/quintus-all.js'></script>
+    <script src='game.js'></script>
+</body>
+
+</html>
