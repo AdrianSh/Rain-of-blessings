@@ -1287,6 +1287,7 @@ startGameBtn.addEventListener("click", function () {
     // --- HTML ELEMENT REFERENCES ---
     const textInput = document.getElementById('text-input');
     const randomCheckboxElm = document.getElementById('randomWordOrder');
+    const randomSectionCheckboxElm = document.getElementById('randomSectionOrder');
     const speedElm = document.getElementById('speed');
     const learningHelperElm = document.getElementById('learningHelper');
     const learningModeDelayElm = document.getElementById('learningModeDelay');
@@ -1303,8 +1304,18 @@ startGameBtn.addEventListener("click", function () {
 
 
     function pickNewWord(section, wordNumber = 0) {
-        const words = VOCABULARY[section];
-        return (randomCheckboxElm.checked && !learningModeCheckboxElm.checked) || wordNumber >= words.length ? words[Math.floor(Math.random() * words.length)] : words[wordNumber];
+        let sSection = section;
+
+        if(randomSectionCheckboxElm.checked){
+            sSection = vocSections[Math.floor(Math.random() * vocSections.length)];
+            pickNewSection(sSection);
+        }
+
+        const words = VOCABULARY[sSection];
+
+        return (randomCheckboxElm.checked && !learningModeCheckboxElm.checked) || wordNumber >= words.length ?
+            words[Math.floor(Math.random() * words.length)]
+            : words[wordNumber];
     }
 
     function countWords(section) {
@@ -1389,7 +1400,8 @@ startGameBtn.addEventListener("click", function () {
             if (stage.options.lives <= 0) return;
             stage.options.isWordAnswered = false;
 
-            const wordData = learningModeCheckboxElm.checked ? pickNewWord(stage.options.vocSection, stage.options.wordNumber)
+            const wordData = learningModeCheckboxElm.checked ?
+                pickNewWord(stage.options.vocSection, stage.options.wordNumber)
                 : pickNewWord(stage.options.vocSection, ++stage.options.wordNumber); // You can change this dynamically later
 
             console.debug(`New word with speed: ${stage.options.wordSpeed}`);
