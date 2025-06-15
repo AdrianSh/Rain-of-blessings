@@ -16,6 +16,18 @@ vocSections.forEach(section => {
     startingSectionElm.appendChild(option);
 });
 
+// NEW: Add event listener to control checkbox dependency
+const flashcardModeCheckboxElm = document.getElementById('flashcardMode');
+const presentationModeCheckboxElm = document.getElementById('presentationMode');
+
+flashcardModeCheckboxElm.addEventListener('change', () => {
+    presentationModeCheckboxElm.disabled = !flashcardModeCheckboxElm.checked;
+    if (!flashcardModeCheckboxElm.checked) {
+        presentationModeCheckboxElm.checked = false;
+    }
+});
+
+
 function pickNewSection(sectionIndex) {
     startingSectionElm.selectedIndex = sectionIndex;
 }
@@ -82,8 +94,6 @@ startGameBtn.addEventListener("click", function () {
     const collapseElementList = document.querySelectorAll('.collapse')
     const collapseList = [...collapseElementList].map(collapseEl => new bootstrap.Collapse(collapseEl, { toggle: false })).forEach(e => e.hide());
 
-    learningModeCheckboxElm.dispatchEvent(new Event("click"));
-
     // --- GAME CONFIGURATION ---
     const wordSize = gameCanvas.width > 700 ? 40 : 25;
 
@@ -96,22 +106,13 @@ startGameBtn.addEventListener("click", function () {
     const learningModeDelayElm = document.getElementById('learningModeDelay');
 
     if(typeof window.Q != 'undefined'){
-        // Step 1: Clear all stages and sprites/UI
         Q.clearStages();
-
-        // Step 2: Stop the game loop
         if (Q.loop) {
             window.cancelAnimationFrame(Q.loop);
             Q.loop = null;
         }
-
-        // Step 3: Reset global game state
         Q.reset();
-
-        // Step 4: Clean up DOM event listeners (adjust based on your code)
-        if (textInput) {
-            textInput.value = "";
-        }
+        if (textInput) textInput.value = "";
     }
 
     // --- SETUP THE GAME ---
@@ -127,10 +128,10 @@ startGameBtn.addEventListener("click", function () {
 
     function pickNewWord(section, wordNumber = 0) {
         let sSection = section;
-
         const words = VOCABULARY[sSection];
+        const useRandom = (randomCheckboxElm.checked && !learningModeCheckboxElm.checked) || wordNumber >= words.length;
 
-        return (randomCheckboxElm.checked && !learningModeCheckboxElm.checked) || wordNumber >= words.length ?
+        return useRandom ?
             words[Math.floor(Math.random() * words.length)]
             : words[wordNumber];
     }
@@ -140,7 +141,7 @@ startGameBtn.addEventListener("click", function () {
         return words.length;
     }
 
-    // --- SPRITE DEFINITION: The Falling Word (Unchanged) ---
+    // --- SPRITE DEFINITION: The Falling Word ---
     Q.Sprite.extend("Word", {
         init: function (p) {
             this._super(p, {
@@ -161,7 +162,6 @@ startGameBtn.addEventListener("click", function () {
                 color: color,
                 size: wordSize
             }));
-            // this.p.labelElement.p.font = "1rem Arial";
         },
         step: function (dt) {
             this.p.y += this.p.vy * dt;
@@ -171,52 +171,41 @@ startGameBtn.addEventListener("click", function () {
     });
 
 
-    // --- NEW FEATURE: Custom UI Sprite for rendering wrapped text ---
+    // --- Custom UI Sprite for rendering wrapped text ---
     Q.UI.Text.extend("WrappedText", {
         init: function (p) {
             this._super(p, {
                 lineHeight: 1.2,
                 align: 'center',
-                textBaseline: 'top', // Better for manual vertical alignment
+                textBaseline: 'top',
                 color: p.color || "#000",
                 font: p.font || "Arial",
                 size: p.size || 24,
                 family: p.family || "Arial",
-                w: p.w || Q.width * 0.9 // Default wrap width
+                w: p.w || Q.width * 0.9
             });
         },
         draw: function (ctx) {
             if (!this.p.label) return;
-
             ctx.save();
-
-            // Set font and styles
             ctx.font = `${this.p.size}px ${this.p.family}`;
             ctx.fillStyle = this.p.color;
             ctx.textAlign = this.p.align;
-            ctx.textBaseline = 'alphabetic'; // Standard baseline
-
-            // Wrap the text
+            ctx.textBaseline = 'alphabetic';
             const lines = this.wrapText(ctx, this.p.label.toString(), this.p.w);
             const fontHeight = this.p.size;
             const totalHeight = lines.length * fontHeight * this.p.lineHeight;
-
-            // Start Y from center minus half height
             let startX = 0;
             let startY = 0 - (totalHeight / 2);
-
-            // Draw each line
             for (let i = 0; i < lines.length; i++) {
                 ctx.fillText(lines[i], startX, startY + (i * fontHeight * this.p.lineHeight));
             }
-
             ctx.restore();
         },
         wrapText: function (context, text, maxWidth) {
             const words = text.split(' ');
             let lines = [];
             let currentLine = '';
-
             for (let word of words) {
                 const testLine = currentLine + word + ' ';
                 const { width } = context.measureText(testLine);
@@ -228,54 +217,17 @@ startGameBtn.addEventListener("click", function () {
                 }
             }
             if (currentLine.trim()) lines.push(currentLine.trim());
-
             return lines;
-        }
-    });
-
-    // --- SPRITE TO RENDER TYPED INPUT (FIXED) ---
-    Q.Sprite.extend("InputDisplay", {
-        init: function (p) {
-            this._super(p, { x: Q.width / 2, y: Q.height - 40, label: "", type: 0 });
-            this.p.label = this.p.greek;
-            this.on("inserted", this, "drawLabel");
-        },
-
-        // --- FIX #1: THE STEP METHOD ---
-        // By adding a 'step' method, we tell Quintus to run this sprite's logic
-        // on every single frame, which forces it to be redrawn constantly.
-        // This is what makes the typed input visible and update live.
-        step: function (dt) {
-            this.p.label = textInput.value;
-        },
-
-        draw: function (ctx) {
-            ctx.font = "1rem Arial";
-            ctx.textAlign = "center";
-            const currentWord = Q("Word").first();
-            if (!currentWord) return;
-
-            const targetText = currentWord.p.english;
-            const typedText = this.p.label;
-            const fullTextWidth = ctx.measureText(typedText).width;
-            let startX = this.p.x - (fullTextWidth / 2);
-
-            ctx.textAlign = 'left'; // Set alignment for character-by-character drawing
-            for (let i = 0; i < typedText.length; i++) {
-                const char = typedText[i];
-                if (i < targetText.length && char.toLowerCase() === targetText[i].toLowerCase()) {
-                    ctx.fillStyle = "#27ae60"; // Green for correct
-                } else {
-                    ctx.fillStyle = "#c0392b"; // Red for incorrect
-                }
-                ctx.fillText(char, startX, this.p.y);
-                startX += ctx.measureText(char).width;
-            }
         }
     });
 
     // --- SCENE DEFINITION: The Main Game Level ---
     Q.scene("level1", function (stage) {
+        // Determine game mode from checkboxes
+        const isFlashcardMode = flashcardModeCheckboxElm.checked;
+        const isPresentationMode = presentationModeCheckboxElm.checked && isFlashcardMode;
+
+        // Common stage setup
         stage.options.score = 0;
         stage.options.lives = learningModeCheckboxElm.checked ? 200 : 3;
         stage.options.vocSectionNum = startingSectionElm.selectedIndex || 0;
@@ -293,22 +245,9 @@ startGameBtn.addEventListener("click", function () {
 
         const scoreLabel = stage.insert(new Q.UI.Text({ x: 80, y: 30, label: "Score: 0", color: "#34495e", size: 24, align: 'left' }));
         const livesLabel = stage.insert(new Q.UI.Text({ x: Q.width - 80, y: 30, label: `Lives: ${stage.options.lives}`, color: "#34495e", size: 24, align: 'right' }));
-        // const inputDisplay = stage.insert(new Q.InputDisplay());
-
-        const spawnWord = () => {
-            if (stage.options.lives <= 0) return;
-            stage.options.isWordAnswered = false;
-
-            if (!learningModeCheckboxElm.checked && randomSectionCheckboxElm.checked) {
-                stage.options.vocSectionNum = Math.floor(Math.random() * vocSections.length);
-                stage.options.vocSection = vocSections[stage.options.vocSectionNum];
-                pickNewSection(stage.options.vocSectionNum);
-            }
-
-            const wordData = learningModeCheckboxElm.checked ?
-                pickNewWord(stage.options.vocSection, stage.options.wordNumber)
-                : pickNewWord(stage.options.vocSection, ++stage.options.wordNumber); // You can change this dynamically later
-
+        
+        // Universal function to display word context
+        const displayWordContext = (wordData) => {
             // From the spelling try to recover the audio...
             if (wordData.spelling) {
                 const wordSpelling = wordData.spelling.replaceAll('-', '_');
@@ -325,139 +264,305 @@ startGameBtn.addEventListener("click", function () {
                 canvasEl.style.backgroundPosition = "center center";
                 */
             } else {
-                // If there's no word, clear the background.
                 Q.el.style.backgroundImage = 'none';
             }
-
             const wordType = extractWordType(wordData);
-            if(wordData.contextTextGreek){
+            if (wordData.contextTextGreek) {
                 learningHelperElm.innerHTML = boldSelectedWord(wordData.contextTextGreek, wordData.greek.split(', ')[0], wordType);
             } else {
                 learningHelperElm.innerHTML = `<span class="word">${boldSelectedWord(wordData.greek, wordData.greek, wordType)}</span>`;
             }
-
-            console.debug(`New word with speed: ${stage.options.wordSpeed}: ${wordData.greek}`);
-            stage.insert(new Q.Word({
-                greek: wordData.greek,
-                english: wordData.english, // This is now an array!
-                detail: wordData.detail || "",
-                vy: stage.options.wordSpeed,
-                wordType: wordType,
-                contextTextGreek: wordData.contextTextGreek
-            }));
+            return wordType;
         };
+        
 
-        const handleInput = () => {
-            if (isPaused) return;
-            if (stage.options.isWordAnswered) return;
-            const word = Q("Word").first();
+        //=====================================================================
+        // MODE 1: PRESENTATION FLASHCARDS (NON-INTERACTIVE)
+        //=====================================================================
+        if (isPresentationMode) {
+            textInput.style.display = 'none';
+            scoreLabel.p.hidden = true;
+            livesLabel.p.hidden = true;
 
-            if (!word) return;
+            stage.state = { timer: 0, phase: 'new_word', wordData: null, wordNumber: 0, delay: parseInt(learningModeDelayElm.value, 10)};
+            
+            stage.on('step', function(dt) {
+                if (isPaused) return;
+                const state = this.state;
+                state.timer += dt * 1000;
+                state.delay = parseInt(learningModeDelayElm.value, 10);
 
-            const inputValue = textInput.value.trim().toLowerCase();
+                if (state.phase === 'new_word') {
+                    Q("PresentationUI").destroy();
+                    state.wordData = pickNewWord(this.options.vocSection, state.wordNumber);
+                    if (!state.wordData) {
+                         Q.stageScene("endGame", 1, { score: this.options.score, msg: "Lesson Complete!" });
+                         this.pause(); // Stop the scene
+                         return;
+                    }
 
-            // If `english` is an array, check if any match
-            const isCorrect = Array.isArray(word.p.english)
-                ? word.p.english.some(answer => answer.toLowerCase() === inputValue)
-                : word.p.english.toLowerCase() === inputValue;
+                    const wordType = displayWordContext(state.wordData);
+                    this.insert(new Q.UI.Text({
+                        label: state.wordData.greek, x: Q.width / 2, y: Q.height / 2 - 50, size: 60,
+                        color: typeColors[wordType] || typeColors['default'], className: 'PresentationUI'
+                    }));
+                    state.phase = 'show_answer';
+                    state.timer = 0;
+                }
+                else if (state.phase === 'show_answer' && state.timer > state.delay) {
+                    this.insert(new Q.WrappedText({
+                        label: state.wordData.detail, x: Q.width / 2, y: Q.height / 2 + 50, size: 40,
+                        color: '#34495e', w: Q.width * 0.8, className: 'PresentationUI'
+                    }));
 
-            if (isCorrect) {
-                stage.options.isWordAnswered = true;
-                if (learningModeCheckboxElm.checked) {
-                    ++stage.options.wordNumber;
+                    let audioDelay = 0;
+                    // From the spelling try to recover the audio...
+                    if (state.wordData.spelling) {
+                        const wordSpelling = state.wordData.spelling.replaceAll('-', '_');
+                        if (pronounceGreekCheckboxElm.checked) {
+                            const audio = new Audio(`audio/${wordSpelling}back.mp3`);
+                            audioDelay = (parseInt(audio.duration) || 0) * 1000;
+                            audio.play().catch(e => console.warn(`Audio file for "${wordSpelling}" not found or could not be played.`, e));
+                        }
+                    }
+                    state.phase = 'wait';
+                    state.timer = (audioDelay > 0 ? audioDelay + 3000: 0) * -1;
+                }
+                else if (state.phase === 'wait' && state.timer > state.delay) {
+                    state.wordNumber++;
+                    if (state.wordNumber >= this.options.numWordsInSection) {
+                         if ((this.options.vocSectionNum + 1) < vocSections.length) {
+                            this.options.vocSectionNum++;
+                            this.options.vocSection = vocSections[this.options.vocSectionNum];
+                            pickNewSection(this.options.vocSectionNum);
+                            this.options.numWordsInSection = countWords(this.options.vocSection);
+                            state.wordNumber = 0;
+                        } else {
+                           state.wordData = null; // To trigger end condition
+                        }
+                    }
+                    state.phase = 'new_word';
+                    state.timer = 0;
 
-                    if (randomSectionCheckboxElm.checked) {
-                        stage.options.vocSectionNum = Math.floor(Math.random() * vocSections.length);
+                    this.items.forEach(e => this.remove(e));
+
+                }
+            });
+        } 
+        //=====================================================================
+        // MODE 2: INTERACTIVE FLASHCARDS
+        //=====================================================================
+        else if (isFlashcardMode) {
+            textInput.style.display = 'block';
+            livesLabel.p.hidden = true;
+
+            const spawnFlashcard = () => {
+                Q("FlashcardUI").destroy();
+                const wordData = pickNewWord(stage.options.vocSection, stage.options.wordNumber);
+                const wordType = displayWordContext(wordData);
+                const flashcard = stage.insert(new Q.UI.Text({
+                    label: wordData.greek, x: Q.width / 2, y: Q.height / 2,
+                    color: typeColors[wordType] || typeColors['default'], size: 60, className: 'FlashcardUI'
+                }));
+                flashcard.p.english = wordData.english;
+                flashcard.p.detail = wordData.detail;
+                textInput.value = "";
+                textInput.focus();
+            };
+
+            const handleFlashcardInput = () => {
+                if (isPaused) return;
+                const flashcard = Q("FlashcardUI").first();
+                if (!flashcard) return;
+                const inputValue = textInput.value.trim().toLowerCase();
+                const isCorrect = Array.isArray(flashcard.p.english)
+                    ? flashcard.p.english.some(answer => answer.toLowerCase() === inputValue)
+                    : flashcard.p.english.toLowerCase() === inputValue;
+
+                if (isCorrect) {
+                    flashcard.destroy();
+                    const newLabelText = "✓ " + flashcard.p.label + " " + flashcard.p.detail;
+                    const feedback = stage.insert(new Q.WrappedText({
+                        label: newLabelText, x: Q.width/2, y: Q.height/2, color: '#2ecc71', size: wordSize, w: Q.width * 0.85, className: 'FlashcardUI'
+                    }));
+                    textInput.disabled = true;
+                    setTimeout(() => {
+                        feedback.destroy();
+                        stage.trigger("correctAnswer");
+                        textInput.disabled = false;
+                        textInput.focus();
+                    }, parseInt(learningModeDelayElm.value));
+                }
+            };
+            
+            textInput.addEventListener('input', handleFlashcardInput);
+            stage.on('destroy', () => textInput.removeEventListener('input', handleFlashcardInput));
+
+            stage.on("correctAnswer", () => {
+                scoreLabel.p.label = `Score: ${++stage.options.score}`;
+                stage.options.wordNumber++;
+                 if (stage.options.wordNumber >= stage.options.numWordsInSection) {
+                     if ((stage.options.vocSectionNum + 1) < vocSections.length) {
+                        stage.options.vocSectionNum++;
                         stage.options.vocSection = vocSections[stage.options.vocSectionNum];
                         pickNewSection(stage.options.vocSectionNum);
+                        stage.options.numWordsInSection = countWords(stage.options.vocSection);
+                        stage.options.wordNumber = 0;
+                    } else {
+                        Q.stageScene("endGame", 1, { score: stage.options.score, msg: "Game Conquered!" });
                     }
                 }
+                spawnFlashcard();
+            });
 
-                word.p.vy = 0;
+            spawnFlashcard();
+        }
+        //=====================================================================
+        // MODE 3: FALLING WORDS (DEFAULT)
+        //=====================================================================
+        else {
 
-                // --- MODIFICATION: Use the new WrappedText for correct answers ---
-                if (word.p.labelElement) word.p.labelElement.destroy();
-                const newLabelText = "✓ " + word.p.greek + " " + word.p.detail;
+            const spawnWord = () => {
+                if (stage.options.lives <= 0) return;
+                stage.options.isWordAnswered = false;
 
-                // Replace the old label with our new, self-wrapping one
-                word.p.labelElement = stage.insert(new Q.WrappedText({
-                    label: newLabelText,
-                    x: 0,
-                    y: 0,
-                    color: '#2ecc71',
-                    size: wordSize,
-                    w: Q.width * 0.85 // ← Add this!
-                }));
-
-                word.p.x = Q.width / 2;
-                word.p.y = Q.height / 2;
-
-                // textInput.disabled = true;
-                textInput.value = "";
-
-                setTimeout(() => {
-                    if (word.p.labelElement) word.p.labelElement.destroy();
-                    word.destroy();
-                    stage.trigger("correctAnswer");
-                    textInput.disabled = false;
-                    textInput.focus();
-                }, learningModeCheckboxElm.checked ? learningModeDelayElm.value || 2000 : 600);
-            } else if (learningModeCheckboxElm.checked) {
-                const helper = `<span class="detail">${boldSelectedWord(word.p.greek, word.p.greek, word.p.wordType)}   ${word.p.detail}</span>`;
-                if(word.p.contextTextGreek){
-                    learningHelperElm.innerHTML = boldSelectedWord(word.p.contextTextGreek, word.p.greek.split(', ')[0], word.p.wordType) + '<br />' + helper;
-                } else {
-                    learningHelperElm.innerHTML = helper;
-                }
-            }
-        };
-
-        textInput.addEventListener('input', handleInput);
-        stage.on('destroy', () => { textInput.removeEventListener('input', handleInput); });
-
-        // --- FIX #2: CLEARING THE INPUT ---
-        stage.on("loseLife", () => {
-            livesLabel.p.label = `Lives: ${--stage.options.lives}`;
-
-            // This clears the input field when you miss a word.
-            textInput.value = "";
-
-            if (stage.options.lives <= 0) {
-                Q.stageScene("endGame", 1, { score: stage.options.score });
-            } else {
-                spawnWord();
-            }
-        });
-
-        stage.on("correctAnswer", () => {
-            scoreLabel.p.label = `Score: ${++stage.options.score}`;
-            if (!learningModeCheckboxElm.checked) {
-                stage.options.wordSpeed += 1;
-                speedElm.value = stage.options.wordSpeed;
-            }
-            spawnWord();
-
-            if (stage.options.score > (stage.options.numWordsInSection + 10)) {
-                console.debug('Score above num. of words: ' + stage.options.score);
-                if ((stage.options.vocSectionNum + 1) < vocSections.length) {
-                    ++stage.options.vocSectionNum;
+                if (!learningModeCheckboxElm.checked && randomSectionCheckboxElm.checked) {
+                    stage.options.vocSectionNum = Math.floor(Math.random() * vocSections.length);
                     stage.options.vocSection = vocSections[stage.options.vocSectionNum];
                     pickNewSection(stage.options.vocSectionNum);
-                    stage.options.accumulatedScore = (stage.options.accumulatedScore || 0) + stage.options.score;
-                    stage.options.score = 0;
-                    stage.options.wordSpeed = stage.options.initialWordSpeed; // Restore speed
-                    stage.options.lives += 3; // Restore lives and sumup the previous
-                    console.info('New section!' + stage.options.numWordsInSection);
-                } else {
-                    Q.stageScene("endGame", 1, { score: stage.options.accumulatedScore, msg: "Game conquered!" });
                 }
-            } else {
-                console.debug('Score: ' + stage.options.score + ', words in section: ' + stage.options.numWordsInSection);
-            }
-        });
 
-        spawnWord();
-        // Add a click listener to the whole canvas to re-focus the hidden input
+                const wordData = learningModeCheckboxElm.checked ?
+                    pickNewWord(stage.options.vocSection, stage.options.wordNumber)
+                    : pickNewWord(stage.options.vocSection, ++stage.options.wordNumber); // You can change this dynamically later
+                
+                const wordType = displayWordContext(wordData);
+                
+                stage.insert(new Q.Word({
+                    greek: wordData.greek,
+                    english: wordData.english, // This is now an array!
+                    detail: wordData.detail || "",
+                    spelling: wordData.spelling,
+                    vy: stage.options.wordSpeed,
+                    wordType: wordType,
+                    contextTextGreek: wordData.contextTextGreek
+                }));
+            };
+
+            const handleInput = () => {
+                if (isPaused || stage.options.isWordAnswered) return;
+                const word = Q("Word").first();
+                if (!word) return;
+                const inputValue = textInput.value.trim().toLowerCase();
+                // If `english` is an array, check if any match
+                const isCorrect = Array.isArray(word.p.english)
+                    ? word.p.english.some(answer => answer.toLowerCase() === inputValue)
+                    : word.p.english.toLowerCase() === inputValue;
+
+                if (isCorrect) {
+                    stage.options.isWordAnswered = true;
+
+                    // From the spelling try to recover the audio...
+                    if (word.p.spelling) {
+                        const wordSpelling = word.p.spelling.replaceAll('-', '_');
+                        if (pronounceGreekCheckboxElm.checked) {
+                            const audio = new Audio(`audio/${wordSpelling}back.mp3`);
+                            audio.play().catch(e => console.warn(`Audio file for "${wordSpelling}back" not found or could not be played.`, e));
+                        }
+                    }
+
+                    if (learningModeCheckboxElm.checked) {
+                        ++stage.options.wordNumber;
+
+                        if (randomSectionCheckboxElm.checked) {
+                            stage.options.vocSectionNum = Math.floor(Math.random() * vocSections.length);
+                            stage.options.vocSection = vocSections[stage.options.vocSectionNum];
+                            pickNewSection(stage.options.vocSectionNum);
+                        }
+                    }
+
+                    word.p.vy = 0;
+
+                    // --- MODIFICATION: Use the new WrappedText for correct answers ---
+                    if (word.p.labelElement) word.p.labelElement.destroy();
+                    const newLabelText = "✓ " + word.p.greek + " " + word.p.detail;
+
+                    // Replace the old label with our new, self-wrapping one
+                    word.p.labelElement = stage.insert(new Q.WrappedText({
+                        label: newLabelText,
+                        x: 0,
+                        y: 0,
+                        color: '#2ecc71',
+                        size: wordSize,
+                        w: Q.width * 0.85 // ← Add this!
+                    }));
+
+                    word.p.x = Q.width / 2;
+                    word.p.y = Q.height / 2;
+
+                    // textInput.disabled = true;
+                    textInput.value = "";
+
+                    setTimeout(() => {
+                        if (word.p.labelElement) word.p.labelElement.destroy();
+                        word.destroy();
+                        stage.trigger("correctAnswer");
+                        textInput.disabled = false;
+                        textInput.focus();
+                    }, learningModeCheckboxElm.checked ? learningModeDelayElm.value || 2000 : 600);
+                } else if (learningModeCheckboxElm.checked) {
+                    const helper = `<span class="detail">${boldSelectedWord(word.p.greek, word.p.greek, word.p.wordType)}   ${word.p.detail}</span>`;
+                    if(word.p.contextTextGreek){
+                        learningHelperElm.innerHTML = boldSelectedWord(word.p.contextTextGreek, word.p.greek.split(', ')[0], word.p.wordType) + '<br />' + helper;
+                    } else {
+                        learningHelperElm.innerHTML = helper;
+                    }
+                }
+            };
+            
+            textInput.addEventListener('input', handleInput);
+            stage.on('destroy', () => { textInput.removeEventListener('input', handleInput); });
+
+            stage.on("loseLife", () => {
+                livesLabel.p.label = `Lives: ${--stage.options.lives}`;
+                textInput.value = "";
+                if (stage.options.lives <= 0) {
+                    Q.stageScene("endGame", 1, { score: stage.options.score });
+                } else {
+                    spawnWord();
+                }
+            });
+
+            stage.on("correctAnswer", () => {
+                scoreLabel.p.label = `Score: ${++stage.options.score}`;
+                if (!learningModeCheckboxElm.checked) {
+                    stage.options.wordSpeed += 1;
+                    speedElm.value = stage.options.wordSpeed;
+                }
+                spawnWord();
+
+                if (stage.options.score > (stage.options.numWordsInSection + 10)) {
+                    console.debug('Score above num. of words: ' + stage.options.score);
+                    if ((stage.options.vocSectionNum + 1) < vocSections.length) {
+                        ++stage.options.vocSectionNum;
+                        stage.options.vocSection = vocSections[stage.options.vocSectionNum];
+                        pickNewSection(stage.options.vocSectionNum);
+                        stage.options.accumulatedScore = (stage.options.accumulatedScore || 0) + stage.options.score;
+                        stage.options.score = 0;
+                        stage.options.wordSpeed = stage.options.initialWordSpeed; // Restore speed
+                        stage.options.lives += 3; // Restore lives and sumup the previous
+                        console.info('New section!' + stage.options.numWordsInSection);
+                    } else {
+                        Q.stageScene("endGame", 1, { score: stage.options.accumulatedScore, msg: "Game conquered!" });
+                    }
+                } else {
+                    console.debug('Score: ' + stage.options.score + ', words in section: ' + stage.options.numWordsInSection);
+                }
+            });
+
+            spawnWord();
+        }
+
         Q.el.addEventListener('click', () => textInput.focus());
         stage.on('destroy', () => { Q.el.removeEventListener('click', () => textInput.focus()); });
         setTimeout(() => textInput.focus(), 0);
@@ -471,7 +576,7 @@ startGameBtn.addEventListener("click", function () {
         container.insert(new Q.UI.Text({ x: 0, y: -80, color: "white", size: 60, label: stage.options.msg || "Game Over" }));
         container.insert(new Q.UI.Text({ x: 0, y: 0, color: "white", size: 24, label: `Final Score: ${stage.options.score}` }));
         const button = container.insert(new Q.UI.Button({ x: 0, y: 80, fill: "#3498db", label: "Play Again", fontColor: "white", size: 20, py: 15, px: 30 }));
-        button.on("click", () => { Q.clearStages(); Q.stageScene("level1"); });
+        button.on("click", () => { Q.clearStages(); startGameBtn.click(); });
         container.fit(40, 40);
     });
 
