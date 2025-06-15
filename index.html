@@ -23,10 +23,6 @@
             /* Added to remove default body margin */
         }
 
-        h1 {
-            color: #2c3e50;
-        }
-
         .instructions {
             margin-bottom: 20px;
             color: #555;
@@ -57,11 +53,6 @@
             border-radius: 5px;
             font-size: 1.5rem;
             padding: 0.5rem;
-            margin-top: 1rem;
-        }
-
-        #learningHelper {
-            color: darkcyan;
         }
 
         #gameOptions {
@@ -73,24 +64,16 @@
         }
 
         #startingSection {
-            border-radius: 4px;
-            padding: .1rem;
             color: gray;
-            border-color: gray;
-            font-size: .9rem;
         }
 
-        #startGameBtn {
-            border-radius: 5px;
-            border: 1px solid green;
-            background: green;
-            color: white;
-            font-weight: bolder;
-            padding: .1rem 1rem;
+        #learningHelper b {
+            background: white;
+            padding: 0.1rem 0.2rem;
         }
-
-        #startGameBtn:hover {
-            background: rgb(2, 46, 2);
+        
+        #learningHelper span.detail {
+            opacity: 0.5;
         }
     </style>
 </head>
@@ -105,20 +88,37 @@
 
     <!-- This input is now invisible to the user but will capture keyboard input -->
     <div class="container">
-        <input type="text" id="text-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="container-fluid">
+        <div class="container mt-3" id="learningHelper">&nbsp;</div>
+        <input type="text" id="text-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+            class="container-fluid mt-3">
 
-        <h3 id="learningHelper"></h3>
-        <h2 id="sectionName"></h2>
-        <div id="actions" class="input-group">
+        <div id="actions" class="input-group mt-1">
             <select id="startingSection" class="form-control"></select>
-            <button id="startGameBtn" >START</button>
+            <button class="btn btn-success" type="button" id="startGameBtn">START</button>
+            <button class="btn btn-secondary" type="button" id="pauseGame">||</button>
+            <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOptions"
+                aria-expanded="false" aria-controls="collapseOptions">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-gear"
+                    viewBox="0 0 16 16">
+                    <path
+                        d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492M5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0" />
+                    <path
+                        d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115z" />
+                </svg>
+            </button>
         </div>
-        <div id="gameOptions" class="container">
-            <div>Random word order: <input type="checkbox" id="randomWordOrder"></div>
-            <div>Random section order: <input type="checkbox" id="randomSectionOrder"></div>
-            <div>Learning mode: <input type="checkbox" id="learningMode" checked></div>
-            <div>Learning mode delay between word: <input type="number" id="learningModeDelay" value="2000"></div>
-            <div>Initial speed: <input type="number" id="speed" value="100"></div>
+        <div class="collapse" id="collapseOptions">
+            <div class="card card-body">
+                <div id="gameOptions" class="container">
+                    <div>Random word order: <input type="checkbox" id="randomWordOrder"></div>
+                    <div>Random section order: <input type="checkbox" id="randomSectionOrder"></div>
+                    <div>Learning mode: <input type="checkbox" id="learningMode" checked></div>
+                    <div>Pronunciation (when available): <input type="checkbox" id="speak" checked></div>
+                    <div>Learning mode delay between word: <input type="number" id="learningModeDelay" value="2000">
+                    </div>
+                    <div>Initial speed: <input type="number" id="speed" value="70"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -131,6 +131,7 @@
         crossorigin="anonymous"></script>
 
     <script src='quintus-all.js'></script>
+    <script src='vocc.js'></script>
     <script src='game.js'></script>
 </body>
 
