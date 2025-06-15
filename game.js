@@ -373,8 +373,6 @@ startGameBtn.addEventListener("click", function () {
                     }
                 }
 
-
-
                 word.p.vy = 0;
 
                 // --- MODIFICATION: Use the new WrappedText for correct answers ---
@@ -395,12 +393,12 @@ startGameBtn.addEventListener("click", function () {
                 word.p.y = Q.height / 2;
 
                 // textInput.disabled = true;
+                textInput.value = "";
 
                 setTimeout(() => {
                     if (word.p.labelElement) word.p.labelElement.destroy();
                     word.destroy();
                     stage.trigger("correctAnswer");
-                    textInput.value = "";
                     textInput.disabled = false;
                     textInput.focus();
                 }, learningModeCheckboxElm.checked ? learningModeDelayElm.value || 2000 : 600);
