@@ -250,7 +250,7 @@ startGameBtn.addEventListener("click", function () {
         const displayWordContext = (wordData) => {
             // From the spelling try to recover the audio...
             if (wordData.spelling) {
-                const wordSpelling = wordData.spelling.replaceAll('-', '_');
+                const wordSpelling = wordData.spelling.replaceAll('-', '_').toLowerCase();
                 if (pronounceGreekCheckboxElm.checked) {
                     const audio = new Audio(`audio/${wordSpelling}.mp3`);
                     audio.play().catch(e => console.warn(`Audio file for "${wordSpelling}" not found or could not be played.`, e));
@@ -464,7 +464,7 @@ startGameBtn.addEventListener("click", function () {
 
                     // From the spelling try to recover the audio...
                     if (word.p.spelling) {
-                        const wordSpelling = word.p.spelling.replaceAll('-', '_');
+                        const wordSpelling = word.p.spelling.replaceAll('-', '_').toLowerCase();
                         if (pronounceGreekCheckboxElm.checked) {
                             const audio = new Audio(`audio/${wordSpelling}back.mp3`);
                             audio.play().catch(e => console.warn(`Audio file for "${wordSpelling}back" not found or could not be played.`, e));
