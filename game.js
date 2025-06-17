@@ -105,7 +105,7 @@ startGameBtn.addEventListener("click", function () {
     const learningHelperElm = document.getElementById('learningHelper');
     const learningModeDelayElm = document.getElementById('learningModeDelay');
 
-    if(typeof window.Q != 'undefined'){
+    if (typeof window.Q != 'undefined') {
         Q.clearStages();
         if (Q.loop) {
             window.cancelAnimationFrame(Q.loop);
@@ -170,6 +170,21 @@ startGameBtn.addEventListener("click", function () {
         }
     });
 
+    Q.UI.Text.extend("FlashcardUI", {
+        init: function (p) {
+            this._super(p, {
+                label: p.greek,
+                x: Q.width / 2,
+                y: Q.height / 2,
+                color: typeColors[p.wordType] || typeColors['default'],
+                size: 60
+            });
+        },
+        draw: function (ctx) {
+            this._super(ctx);
+        }
+    });
+
 
     // --- Custom UI Sprite for rendering wrapped text ---
     Q.UI.Text.extend("WrappedText", {
@@ -230,14 +245,29 @@ startGameBtn.addEventListener("click", function () {
         // Common stage setup
         stage.options.score = 0;
         stage.options.lives = learningModeCheckboxElm.checked ? 200 : 3;
-        stage.options.vocSectionNum = startingSectionElm.selectedIndex || 0;
-        stage.options.vocSection = startingSectionElm.value || vocSections[stage.options.vocSectionNum];
-        pickNewSection(stage.options.vocSectionNum);
-        stage.options.numWordsInSection = countWords(stage.options.vocSection);
+
+        function pickNewSection(sectionIndex) {
+            startingSectionElm.selectedIndex = sectionIndex;
+            stage.options.vocSectionNum = sectionIndex || 0;
+            stage.options.vocSection = startingSectionElm.value || vocSections[stage.options.vocSectionNum];
+            stage.options.numWordsInSection = countWords(stage.options.vocSection);
+            stage.options.wordNumber = 0;
+        }
+
+        function handleStartingSelectionChange() {
+            if (startingSectionElm.selectedIndex != stage.options.vocSectionNum) {
+                pickNewSection(startingSectionElm.selectedIndex);
+            }
+        }
+        startingSectionElm.addEventListener('change', handleStartingSelectionChange);
+        stage.on('destroy', () => startingSectionElm.removeEventListener('change', handleStartingSelectionChange));
+
+
+        pickNewSection(startingSectionElm.selectedIndex);
+
         stage.options.initialWordSpeed = parseInt(speedElm.value) || 100;
         stage.options.wordSpeed = stage.options.initialWordSpeed;
         stage.options.isWordAnswered = false;
-        stage.options.wordNumber = 0;
 
         textInput.value = "";
         textInput.disabled = false;
@@ -245,7 +275,7 @@ startGameBtn.addEventListener("click", function () {
 
         const scoreLabel = stage.insert(new Q.UI.Text({ x: 80, y: 30, label: "Score: 0", color: "#34495e", size: 24, align: 'left' }));
         const livesLabel = stage.insert(new Q.UI.Text({ x: Q.width - 80, y: 30, label: `Lives: ${stage.options.lives}`, color: "#34495e", size: 24, align: 'right' }));
-        
+
         // Universal function to display word context
         const displayWordContext = (wordData) => {
             // From the spelling try to recover the audio...
@@ -274,7 +304,7 @@ startGameBtn.addEventListener("click", function () {
             }
             return wordType;
         };
-        
+
 
         //=====================================================================
         // MODE 1: PRESENTATION FLASHCARDS (NON-INTERACTIVE)
@@ -284,9 +314,9 @@ startGameBtn.addEventListener("click", function () {
             scoreLabel.p.hidden = true;
             livesLabel.p.hidden = true;
 
-            stage.state = { timer: 0, phase: 'new_word', wordData: null, wordNumber: 0, delay: parseInt(learningModeDelayElm.value, 10)};
-            
-            stage.on('step', function(dt) {
+            stage.state = { timer: 0, phase: 'new_word', wordData: null, wordNumber: 0, delay: parseInt(learningModeDelayElm.value, 10) };
+
+            stage.on('step', function (dt) {
                 if (isPaused) return;
                 const state = this.state;
                 state.timer += dt * 1000;
@@ -296,9 +326,9 @@ startGameBtn.addEventListener("click", function () {
                     Q("PresentationUI").destroy();
                     state.wordData = pickNewWord(this.options.vocSection, state.wordNumber);
                     if (!state.wordData) {
-                         Q.stageScene("endGame", 1, { score: this.options.score, msg: "Lesson Complete!" });
-                         this.pause(); // Stop the scene
-                         return;
+                        Q.stageScene("endGame", 1, { score: this.options.score, msg: "Lesson Complete!" });
+                        this.pause(); // Stop the scene
+                        return;
                     }
 
                     const wordType = displayWordContext(state.wordData);
@@ -326,29 +356,24 @@ startGameBtn.addEventListener("click", function () {
                         }
                     }
                     state.phase = 'wait';
-                    state.timer = (audioDelay > 0 ? audioDelay + 3000: 0) * -1;
+                    state.timer = (audioDelay > 0 ? audioDelay + 3000 : 0) * -1;
                 }
                 else if (state.phase === 'wait' && state.timer > state.delay) {
                     state.wordNumber++;
                     if (state.wordNumber >= this.options.numWordsInSection) {
-                         if ((this.options.vocSectionNum + 1) < vocSections.length) {
+                        if ((this.options.vocSectionNum + 1) < vocSections.length) {
                             this.options.vocSectionNum++;
-                            this.options.vocSection = vocSections[this.options.vocSectionNum];
                             pickNewSection(this.options.vocSectionNum);
-                            this.options.numWordsInSection = countWords(this.options.vocSection);
-                            state.wordNumber = 0;
                         } else {
-                           state.wordData = null; // To trigger end condition
+                            state.wordData = null; // To trigger end condition
                         }
                     }
                     state.phase = 'new_word';
                     state.timer = 0;
-
                     this.items.forEach(e => this.remove(e));
-
                 }
             });
-        } 
+        }
         //=====================================================================
         // MODE 2: INTERACTIVE FLASHCARDS
         //=====================================================================
@@ -360,9 +385,11 @@ startGameBtn.addEventListener("click", function () {
                 Q("FlashcardUI").destroy();
                 const wordData = pickNewWord(stage.options.vocSection, stage.options.wordNumber);
                 const wordType = displayWordContext(wordData);
-                const flashcard = stage.insert(new Q.UI.Text({
-                    label: wordData.greek, x: Q.width / 2, y: Q.height / 2,
-                    color: typeColors[wordType] || typeColors['default'], size: 60, className: 'FlashcardUI'
+                const flashcard = stage.insert(new Q.FlashcardUI({
+                    greek: wordData.greek,
+                    wordType,
+                    contextTextGreek: wordData.contextTextGreek,
+                    spelling: wordData.spelling
                 }));
                 flashcard.p.english = wordData.english;
                 flashcard.p.detail = wordData.detail;
@@ -383,31 +410,47 @@ startGameBtn.addEventListener("click", function () {
                     flashcard.destroy();
                     const newLabelText = "✓ " + flashcard.p.label + " " + flashcard.p.detail;
                     const feedback = stage.insert(new Q.WrappedText({
-                        label: newLabelText, x: Q.width/2, y: Q.height/2, color: '#2ecc71', size: wordSize, w: Q.width * 0.85, className: 'FlashcardUI'
+                        label: newLabelText, x: Q.width / 2, y: Q.height / 2, color: '#2ecc71', size: wordSize, w: Q.width * 0.85, className: 'FlashcardUI'
                     }));
-                    textInput.disabled = true;
+                    
+                    // textInput.disabled = true;
+                    textInput.value = "";
+
+                    // From the spelling try to recover the audio...
+                    if (flashcard.p.spelling) {
+                        const wordSpelling = flashcard.p.spelling.replaceAll('-', '_').toLowerCase();
+                        if (pronounceGreekCheckboxElm.checked) {
+                            const audio = new Audio(`audio/${wordSpelling}back.mp3`);
+                            audio.play().catch(e => console.warn(`Audio file for "${wordSpelling}back" not found or could not be played.`, e));
+                        }
+                    }
+
                     setTimeout(() => {
                         feedback.destroy();
                         stage.trigger("correctAnswer");
                         textInput.disabled = false;
                         textInput.focus();
                     }, parseInt(learningModeDelayElm.value));
+                } else if (learningModeCheckboxElm.checked) {
+                    const helper = `<span class="detail">${boldSelectedWord(flashcard.p.greek, flashcard.p.greek, flashcard.p.wordType)}   ${flashcard.p.detail}</span>`;
+                    if (flashcard.p.contextTextGreek) {
+                        learningHelperElm.innerHTML = boldSelectedWord(flashcard.p.contextTextGreek, flashcard.p.greek.split(', ')[0], flashcard.p.wordType) + '<br />' + helper;
+                    } else {
+                        learningHelperElm.innerHTML = helper;
+                    }
                 }
             };
-            
+
             textInput.addEventListener('input', handleFlashcardInput);
             stage.on('destroy', () => textInput.removeEventListener('input', handleFlashcardInput));
 
             stage.on("correctAnswer", () => {
                 scoreLabel.p.label = `Score: ${++stage.options.score}`;
                 stage.options.wordNumber++;
-                 if (stage.options.wordNumber >= stage.options.numWordsInSection) {
-                     if ((stage.options.vocSectionNum + 1) < vocSections.length) {
+                if (stage.options.wordNumber >= stage.options.numWordsInSection) {
+                    if ((stage.options.vocSectionNum + 1) < vocSections.length) {
                         stage.options.vocSectionNum++;
-                        stage.options.vocSection = vocSections[stage.options.vocSectionNum];
                         pickNewSection(stage.options.vocSectionNum);
-                        stage.options.numWordsInSection = countWords(stage.options.vocSection);
-                        stage.options.wordNumber = 0;
                     } else {
                         Q.stageScene("endGame", 1, { score: stage.options.score, msg: "Game Conquered!" });
                     }
@@ -428,16 +471,15 @@ startGameBtn.addEventListener("click", function () {
 
                 if (!learningModeCheckboxElm.checked && randomSectionCheckboxElm.checked) {
                     stage.options.vocSectionNum = Math.floor(Math.random() * vocSections.length);
-                    stage.options.vocSection = vocSections[stage.options.vocSectionNum];
                     pickNewSection(stage.options.vocSectionNum);
                 }
 
                 const wordData = learningModeCheckboxElm.checked ?
                     pickNewWord(stage.options.vocSection, stage.options.wordNumber)
                     : pickNewWord(stage.options.vocSection, ++stage.options.wordNumber); // You can change this dynamically later
-                
+
                 const wordType = displayWordContext(wordData);
-                
+
                 stage.insert(new Q.Word({
                     greek: wordData.greek,
                     english: wordData.english, // This is now an array!
@@ -476,7 +518,6 @@ startGameBtn.addEventListener("click", function () {
 
                         if (randomSectionCheckboxElm.checked) {
                             stage.options.vocSectionNum = Math.floor(Math.random() * vocSections.length);
-                            stage.options.vocSection = vocSections[stage.options.vocSectionNum];
                             pickNewSection(stage.options.vocSectionNum);
                         }
                     }
@@ -512,14 +553,14 @@ startGameBtn.addEventListener("click", function () {
                     }, learningModeCheckboxElm.checked ? learningModeDelayElm.value || 2000 : 600);
                 } else if (learningModeCheckboxElm.checked) {
                     const helper = `<span class="detail">${boldSelectedWord(word.p.greek, word.p.greek, word.p.wordType)}   ${word.p.detail}</span>`;
-                    if(word.p.contextTextGreek){
+                    if (word.p.contextTextGreek) {
                         learningHelperElm.innerHTML = boldSelectedWord(word.p.contextTextGreek, word.p.greek.split(', ')[0], word.p.wordType) + '<br />' + helper;
                     } else {
                         learningHelperElm.innerHTML = helper;
                     }
                 }
             };
-            
+
             textInput.addEventListener('input', handleInput);
             stage.on('destroy', () => { textInput.removeEventListener('input', handleInput); });
 
@@ -545,7 +586,6 @@ startGameBtn.addEventListener("click", function () {
                     console.debug('Score above num. of words: ' + stage.options.score);
                     if ((stage.options.vocSectionNum + 1) < vocSections.length) {
                         ++stage.options.vocSectionNum;
-                        stage.options.vocSection = vocSections[stage.options.vocSectionNum];
                         pickNewSection(stage.options.vocSectionNum);
                         stage.options.accumulatedScore = (stage.options.accumulatedScore || 0) + stage.options.score;
                         stage.options.score = 0;
@@ -650,7 +690,6 @@ startGameBtn.addEventListener("click", function () {
 
     window.addEventListener('resize', resizeGame);
     resizeGame(); // Initial call
-
 
     startGame(); // Start the game when button is clicked
 });
