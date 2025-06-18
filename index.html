@@ -28,7 +28,7 @@
             height: 100%;
             margin: 0;
             padding: 0;
-            overflow: hidden;
+            overflow: auto;
             /* Prevents scrollbars */
             background-color: #000;
             /* Background for behind the app */
@@ -38,7 +38,7 @@
         #app-container {
             display: flex;
             flex-direction: column;
-            height: 100vh;
+            height: 100svh;
             /* 100% of viewport height */
             background-color: #f0f2f5;
         }
@@ -253,9 +253,9 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.min.js"
         integrity="sha384-7qAoOXltbVP82dhxHAUje59V5r2YsVfBafyUDxEdApLPmcdhBPg1DKg1ERo0BZlK"
         crossorigin="anonymous"></script>
-    <script src='quintus-all.js'></script>
+    <script src='quintus-all.js?v2'></script>
     <script src='vocc.js'></script>
-    <script src='game.js'></script>
+    <script src='game.js?v1'></script>
 
     <script>
         // JS to handle the active state of the mode buttons
