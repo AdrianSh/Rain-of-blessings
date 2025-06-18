@@ -14,8 +14,6 @@ const textInput = document.getElementById('text-input');
 const learningHelperElm = document.getElementById('learningHelper');
 const gameArea = document.getElementById('game-area');
 const gameCanvas = document.getElementById('gameCanvas');
-gameCanvas.width = gameArea.clientWidth;
-gameCanvas.height = gameArea.clientHeight;
 
 // Game Mode Buttons
 const modeFallBtn = document.getElementById('modeFall');
@@ -692,6 +690,8 @@ startGameBtn.addEventListener("click", function () {
 });
 
 function resizeGame() {
+    gameCanvas.width = gameArea.clientWidth;
+    gameCanvas.height = gameArea.clientHeight;
     if (typeof window.Q != 'undefined') {
         console.debug('Restarting game after resizing...');
         startGameBtn.dispatchEvent(new Event('click'));
@@ -714,4 +714,5 @@ const throttledFunction = throttle(() => {
     console.debug("Executed at most once every 1000ms.");
 }, 1000);
 
-window.addEventListener('resize', throttledFunction);
+resizeGame();
+// window.addEventListener('resize', throttledFunction);
