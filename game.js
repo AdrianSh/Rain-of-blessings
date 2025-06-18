@@ -8,29 +8,37 @@ if (!typeof VOCABULARY) {
 }
 
 const startingSectionElm = document.getElementById('startingSection');
+const startGameBtn = document.getElementById('startGameBtn');
+const pauseGameBtn = document.getElementById('pauseGame');
+const textInput = document.getElementById('text-input');
+const learningHelperElm = document.getElementById('learningHelper');
+const gameArea = document.getElementById('game-area');
+const gameCanvas = document.getElementById('gameCanvas');
+gameCanvas.width = gameArea.clientWidth;
+gameCanvas.height = gameArea.clientHeight;
+
+// Game Mode Buttons
+const modeFallBtn = document.getElementById('modeFall');
+const modeFlashcardBtn = document.getElementById('modeFlashcard');
+const modePresentationBtn = document.getElementById('modePresentation');
+
+// Option Inputs from Modal
+const randomCheckboxElm = document.getElementById('randomWordOrder');
+const randomSectionCheckboxElm = document.getElementById('randomSectionOrder');
+const learningModeCheckboxElm = document.getElementById('learningMode');
+const pronounceGreekCheckboxElm = document.getElementById('speak');
+const learningModeDelayElm = document.getElementById('learningModeDelay');
+const speedElm = document.getElementById('speed');
+
+
+// --- Populate Vocabulary Sections ---
 const vocSections = Object.getOwnPropertyNames(VOCABULARY);
 vocSections.forEach(section => {
     const option = document.createElement('option');
-    option.value = section;        // Set the value (what gets submitted)
-    option.textContent = section;  // Set the label (what user sees)
+    option.value = section;
+    option.textContent = section;
     startingSectionElm.appendChild(option);
 });
-
-// NEW: Add event listener to control checkbox dependency
-const flashcardModeCheckboxElm = document.getElementById('flashcardMode');
-const presentationModeCheckboxElm = document.getElementById('presentationMode');
-
-flashcardModeCheckboxElm.addEventListener('change', () => {
-    presentationModeCheckboxElm.disabled = !flashcardModeCheckboxElm.checked;
-    if (!flashcardModeCheckboxElm.checked) {
-        presentationModeCheckboxElm.checked = false;
-    }
-});
-
-
-function pickNewSection(sectionIndex) {
-    startingSectionElm.selectedIndex = sectionIndex;
-}
 
 /**
     n - noun
@@ -78,17 +86,19 @@ function boldSelectedWord(text, word, type) {
     return text.replaceAll(word, `<b style="color: ${type ? typeColors[type] : typeColors['default']};">${word}</b>`);
 }
 
-const startGameBtn = document.getElementById('startGameBtn');
-const pauseGameBtn = document.getElementById('pauseGame');
+function showInteractiveUI() {
+    learningHelperElm.classList.remove('d-none'); // Make the helper visible
+    textInput.classList.remove('d-none');
+    textInput.focus(); // Focus the input so the user can type
+}
 
-const gameCanvasContainer = document.getElementById('game-container');
-const gameCanvas = document.getElementById('gameCanvas');
-gameCanvas.width = gameCanvasContainer.clientWidth;
-gameCanvas.height = gameCanvasContainer.clientHeight;
-
-const learningModeCheckboxElm = document.getElementById('learningMode');
-const pronounceGreekCheckboxElm = document.getElementById('speak');
-const learningHelperElm = document.getElementById('learningHelper');
+function hideInteractiveUI() {
+    learningHelperElm.classList.add('d-none'); // Hide the helper
+    learningHelperElm.innerHTML = ' '; // Clear its content
+    textInput.classList.add('d-none'); // Hide the helper
+    textInput.value = ''; // Clear its content
+    textInput.blur(); // Unfocus the input
+}
 
 startGameBtn.addEventListener("click", function () {
     const collapseElementList = document.querySelectorAll('.collapse')
@@ -97,35 +107,35 @@ startGameBtn.addEventListener("click", function () {
     // --- GAME CONFIGURATION ---
     const wordSize = gameCanvas.width > 700 ? 40 : 25;
 
-    // --- HTML ELEMENT REFERENCES ---
-    const textInput = document.getElementById('text-input');
-    const randomCheckboxElm = document.getElementById('randomWordOrder');
-    const randomSectionCheckboxElm = document.getElementById('randomSectionOrder');
-    const speedElm = document.getElementById('speed');
-    const learningHelperElm = document.getElementById('learningHelper');
-    const learningModeDelayElm = document.getElementById('learningModeDelay');
+    // Reset Quintus if it exists
+    reset();
 
-    if (typeof window.Q != 'undefined') {
-        Q.clearStages();
-        if (Q.loop) {
-            window.cancelAnimationFrame(Q.loop);
-            Q.loop = null;
-        }
-        Q.reset();
-        if (textInput) textInput.value = "";
-    }
-
-    // --- SETUP THE GAME ---
+    // Setup the game engine
     window.Q = Quintus()
         .include("Sprites, Scenes, Input, UI, Touch")
         .setup("gameCanvas", {
-            width: gameCanvasContainer.clientWidth,
-            height: gameCanvasContainer.clientHeight,
-            maximize: false
+            width: gameArea.clientWidth,
+            height: gameArea.clientHeight,
+            maximize: false,
+            wrapper: gameArea
         })
-        .controls(false).touch();
+        .controls(false).untouch();
 
+    Q.input.drawButtons = function () { }; // No-op to prevent drawing touch buttons
 
+    function reset() {
+        if (typeof window.Q != 'undefined') {
+            Q.clearStages();
+            if (Q.loop) {
+                window.cancelAnimationFrame(Q.loop);
+                Q.loop = null;
+            }
+            Q.reset();
+            if (textInput) textInput.value = "";
+        }
+    }
+
+    // Helper functions inside game scope
     function pickNewWord(section, wordNumber = 0) {
         let sSection = section;
         const words = VOCABULARY[sSection];
@@ -137,8 +147,7 @@ startGameBtn.addEventListener("click", function () {
     }
 
     function countWords(section) {
-        const words = VOCABULARY[section];
-        return words.length;
+        return VOCABULARY[section].length;
     }
 
     // --- SPRITE DEFINITION: The Falling Word ---
@@ -238,9 +247,10 @@ startGameBtn.addEventListener("click", function () {
 
     // --- SCENE DEFINITION: The Main Game Level ---
     Q.scene("level1", function (stage) {
-        // Determine game mode from checkboxes
-        const isFlashcardMode = flashcardModeCheckboxElm.checked;
-        const isPresentationMode = presentationModeCheckboxElm.checked && isFlashcardMode;
+        const isPresentationMode = modePresentationBtn.classList.contains('active');
+        const isFlashcardMode = modeFlashcardBtn.classList.contains('active');
+        // Fall mode is the default if the others aren't active
+        const isFallMode = modeFallBtn.classList.contains('active');
 
         // Common stage setup
         stage.options.score = 0;
@@ -252,6 +262,7 @@ startGameBtn.addEventListener("click", function () {
             stage.options.vocSection = startingSectionElm.value || vocSections[stage.options.vocSectionNum];
             stage.options.numWordsInSection = countWords(stage.options.vocSection);
             stage.options.wordNumber = 0;
+            textInput.focus(); 
         }
 
         function handleStartingSelectionChange() {
@@ -271,7 +282,6 @@ startGameBtn.addEventListener("click", function () {
 
         textInput.value = "";
         textInput.disabled = false;
-        textInput.focus();
 
         const scoreLabel = stage.insert(new Q.UI.Text({ x: 80, y: 30, label: "Score: 0", color: "#34495e", size: 24, align: 'left' }));
         const livesLabel = stage.insert(new Q.UI.Text({ x: Q.width - 80, y: 30, label: `Lives: ${stage.options.lives}`, color: "#34495e", size: 24, align: 'right' }));
@@ -310,7 +320,7 @@ startGameBtn.addEventListener("click", function () {
         // MODE 1: PRESENTATION FLASHCARDS (NON-INTERACTIVE)
         //=====================================================================
         if (isPresentationMode) {
-            textInput.style.display = 'none';
+            hideInteractiveUI();
             scoreLabel.p.hidden = true;
             livesLabel.p.hidden = true;
 
@@ -378,7 +388,7 @@ startGameBtn.addEventListener("click", function () {
         // MODE 2: INTERACTIVE FLASHCARDS
         //=====================================================================
         else if (isFlashcardMode) {
-            textInput.style.display = 'block';
+            showInteractiveUI();
             livesLabel.p.hidden = true;
 
             const spawnFlashcard = () => {
@@ -394,7 +404,6 @@ startGameBtn.addEventListener("click", function () {
                 flashcard.p.english = wordData.english;
                 flashcard.p.detail = wordData.detail;
                 textInput.value = "";
-                textInput.focus();
             };
 
             const handleFlashcardInput = () => {
@@ -412,7 +421,7 @@ startGameBtn.addEventListener("click", function () {
                     const feedback = stage.insert(new Q.WrappedText({
                         label: newLabelText, x: Q.width / 2, y: Q.height / 2, color: '#2ecc71', size: wordSize, w: Q.width * 0.85, className: 'FlashcardUI'
                     }));
-                    
+
                     // textInput.disabled = true;
                     textInput.value = "";
 
@@ -429,7 +438,6 @@ startGameBtn.addEventListener("click", function () {
                         feedback.destroy();
                         stage.trigger("correctAnswer");
                         textInput.disabled = false;
-                        textInput.focus();
                     }, parseInt(learningModeDelayElm.value));
                 } else if (learningModeCheckboxElm.checked) {
                     const helper = `<span class="detail">${boldSelectedWord(flashcard.p.greek, flashcard.p.greek, flashcard.p.wordType)}   ${flashcard.p.detail}</span>`;
@@ -464,6 +472,7 @@ startGameBtn.addEventListener("click", function () {
         // MODE 3: FALLING WORDS (DEFAULT)
         //=====================================================================
         else {
+            showInteractiveUI();
 
             const spawnWord = () => {
                 if (stage.options.lives <= 0) return;
@@ -549,7 +558,6 @@ startGameBtn.addEventListener("click", function () {
                         word.destroy();
                         stage.trigger("correctAnswer");
                         textInput.disabled = false;
-                        textInput.focus();
                     }, learningModeCheckboxElm.checked ? learningModeDelayElm.value || 2000 : 600);
                 } else if (learningModeCheckboxElm.checked) {
                     const helper = `<span class="detail">${boldSelectedWord(word.p.greek, word.p.greek, word.p.wordType)}   ${word.p.detail}</span>`;
@@ -603,9 +611,9 @@ startGameBtn.addEventListener("click", function () {
             spawnWord();
         }
 
-        Q.el.addEventListener('click', () => textInput.focus());
-        stage.on('destroy', () => { Q.el.removeEventListener('click', () => textInput.focus()); });
-        setTimeout(() => textInput.focus(), 0);
+        const focusInput = () => textInput.focus();
+        Q.el.addEventListener('click', focusInput);
+        stage.on('destroy', () => { Q.el.removeEventListener('click', focusInput); });
     });
 
     // --- SCENE DEFINITION: Game Over Screen ---
@@ -680,16 +688,11 @@ startGameBtn.addEventListener("click", function () {
         Q.stageScene("level1"); // Start the game scene
     }
 
-    function resizeGame() {
-        const canvas = Q.el;
-        canvas.width = gameCanvasContainer.clientWidth;
-        canvas.height = gameCanvasContainer.clientHeight;
-        Q.width = gameCanvasContainer.clientWidth;
-        Q.height = gameCanvasContainer.clientHeight;
-    }
-
-    window.addEventListener('resize', resizeGame);
-    resizeGame(); // Initial call
-
     startGame(); // Start the game when button is clicked
 });
+
+function resizeGame() {
+    startGameBtn.dispatchEvent(new Event('click'));
+}
+
+window.addEventListener('resize', resizeGame);

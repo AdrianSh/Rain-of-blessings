@@ -1374,15 +1374,17 @@ var Quintus = function Quintus(opts) {
       Q.el.height = h;
     }
 
+    if(options.wrapper)
+      Q.wrapper = options.wrapper;
+    
     var elParent = Q.el.parentNode;
 
-    if(elParent) {
-      Q.wrapper = document.createElement("div");
+    if(elParent && !Q.wrapper && elParent.id != id + '_container') {
+      Q.wrapper = elParent.querySelector('#' + id + '_container') || document.createElement("div");
       Q.wrapper.id = id + '_container';
       Q.wrapper.style.width = w + "px";
       Q.wrapper.style.margin = "0 auto";
       Q.wrapper.style.position = "relative";
-
 
       elParent.insertBefore(Q.wrapper,Q.el);
       Q.wrapper.appendChild(Q.el);
