@@ -692,7 +692,9 @@ startGameBtn.addEventListener("click", function () {
 });
 
 function resizeGame() {
-    startGameBtn.dispatchEvent(new Event('click'));
+    if (typeof window.Q != 'undefined') {
+        startGameBtn.dispatchEvent(new Event('click'));
+    }
 }
 
 window.addEventListener('resize', resizeGame);
