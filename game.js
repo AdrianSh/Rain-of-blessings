@@ -693,8 +693,25 @@ startGameBtn.addEventListener("click", function () {
 
 function resizeGame() {
     if (typeof window.Q != 'undefined') {
+        console.debug('Restarting game after resizing...');
         startGameBtn.dispatchEvent(new Event('click'));
     }
 }
 
-window.addEventListener('resize', resizeGame);
+function throttle(fn, limit) {
+  let inThrottle;
+  return (...args) => {
+    if (!inThrottle) {
+      fn.apply(this, args);
+      inThrottle = true;
+      setTimeout(() => (inThrottle = false), limit);
+    }
+  };
+}
+
+const throttledFunction = throttle(() => {
+    resizeGame();
+    console.debug("Executed at most once every 1000ms.");
+}, 1000);
+
+window.addEventListener('resize', throttledFunction);
