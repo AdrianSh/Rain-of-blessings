@@ -134,14 +134,46 @@ startGameBtn.addEventListener("click", function () {
     }
 
     // Helper functions inside game scope
-    function pickNewWord(section, wordNumber = 0) {
-        let sSection = section;
-        const words = VOCABULARY[sSection];
-        const useRandom = (randomCheckboxElm.checked && !learningModeCheckboxElm.checked) || wordNumber >= words.length;
+    function pickWord(section, wordNumber = 0) {
+        return VOCABULARY[section][wordNumber];
+    }
 
-        return useRandom ?
-            words[Math.floor(Math.random() * words.length)]
-            : words[wordNumber];
+    function randomWordNumber(section, wordNumber) {
+        if (randomCheckboxElm.checked || randomSectionCheckboxElm.checked) {
+            const words = VOCABULARY[section];
+            wordNumber = Math.floor(Math.random() * words.length);
+        }
+        console.debug('Selected word: ', wordNumber);
+        return wordNumber;
+    }
+
+    function pickNewSection(stage, sectionIndex) {
+        startingSectionElm.selectedIndex = sectionIndex;
+        stage.options.vocSectionNum = sectionIndex || 0;
+        stage.options.vocSection = startingSectionElm.value || vocSections[stage.options.vocSectionNum];
+        stage.options.numWordsInSection = countWords(stage.options.vocSection);
+        stage.options.wordNumber = randomWordNumber(stage.options.vocSection, 0);
+        console.debug('Selected section: ', stage.options.vocSectionNum);
+        textInput.focus();
+    }
+
+    function nextWordOrSection(stage) {
+        if (randomSectionCheckboxElm.checked) {
+            stage.options.vocSectionNum = Math.floor(Math.random() * vocSections.length);
+            pickNewSection(stage, stage.options.vocSectionNum);
+        } else {
+            stage.options.wordNumber = randomWordNumber(stage.options.vocSectionNum, ++stage.options.wordNumber);
+            if (stage.options.wordNumber >= stage.options.numWordsInSection) {
+                if ((stage.options.vocSectionNum + 1) < vocSections.length) {
+                    stage.options.vocSectionNum++;
+                    pickNewSection(stage, stage.options.vocSectionNum);
+                } else {
+                    Q.stageScene("endGame", 1, { score: stage.options.score, msg: "Game Conquered!" });
+                }
+            } else {
+                stage.options.wordNumber = randomWordNumber(stage.options.vocSection, stage.options.wordNumber);
+            }
+        }
     }
 
     function countWords(section) {
@@ -245,6 +277,14 @@ startGameBtn.addEventListener("click", function () {
 
     // --- SCENE DEFINITION: The Main Game Level ---
     Q.scene("level1", function (stage) {
+        function handleSectionChange() {
+            if (startingSectionElm.selectedIndex != stage.options.vocSectionNum) {
+                pickNewSection(stage, startingSectionElm.selectedIndex);
+            }
+        }
+        startingSectionElm.addEventListener('change', handleSectionChange);
+        stage.on('destroy', () => startingSectionElm.removeEventListener('change', handleSectionChange));
+
         const isPresentationMode = modePresentationBtn.classList.contains('active');
         const isFlashcardMode = modeFlashcardBtn.classList.contains('active');
         // Fall mode is the default if the others aren't active
@@ -253,33 +293,15 @@ startGameBtn.addEventListener("click", function () {
         // Common stage setup
         stage.options.score = 0;
         stage.options.lives = learningModeCheckboxElm.checked ? 200 : 3;
-
-        function pickNewSection(sectionIndex) {
-            startingSectionElm.selectedIndex = sectionIndex;
-            stage.options.vocSectionNum = sectionIndex || 0;
-            stage.options.vocSection = startingSectionElm.value || vocSections[stage.options.vocSectionNum];
-            stage.options.numWordsInSection = countWords(stage.options.vocSection);
-            stage.options.wordNumber = 0;
-            textInput.focus(); 
-        }
-
-        function handleStartingSelectionChange() {
-            if (startingSectionElm.selectedIndex != stage.options.vocSectionNum) {
-                pickNewSection(startingSectionElm.selectedIndex);
-            }
-        }
-        startingSectionElm.addEventListener('change', handleStartingSelectionChange);
-        stage.on('destroy', () => startingSectionElm.removeEventListener('change', handleStartingSelectionChange));
-
-
-        pickNewSection(startingSectionElm.selectedIndex);
-
         stage.options.initialWordSpeed = parseInt(speedElm.value) || 100;
         stage.options.wordSpeed = stage.options.initialWordSpeed;
         stage.options.isWordAnswered = false;
 
+        pickNewSection(stage, startingSectionElm.selectedIndex);
+
         textInput.value = "";
         textInput.disabled = false;
+        pauseGameBtn.innerText = '||';
 
         const scoreLabel = stage.insert(new Q.UI.Text({ x: 80, y: 30, label: "Score: 0", color: "#34495e", size: 24, align: 'left' }));
         const livesLabel = stage.insert(new Q.UI.Text({ x: Q.width - 80, y: 30, label: `Lives: ${stage.options.lives}`, color: "#34495e", size: 24, align: 'right' }));
@@ -322,7 +344,7 @@ startGameBtn.addEventListener("click", function () {
             scoreLabel.p.hidden = true;
             livesLabel.p.hidden = true;
 
-            stage.state = { timer: 0, phase: 'new_word', wordData: null, wordNumber: 0, delay: parseInt(learningModeDelayElm.value, 10) };
+            stage.state = { timer: 0, phase: 'new_word', wordData: null, delay: parseInt(learningModeDelayElm.value, 10) };
 
             stage.on('step', function (dt) {
                 if (isPaused) return;
@@ -332,7 +354,7 @@ startGameBtn.addEventListener("click", function () {
 
                 if (state.phase === 'new_word') {
                     Q("PresentationUI").destroy();
-                    state.wordData = pickNewWord(this.options.vocSection, state.wordNumber);
+                    state.wordData = pickWord(this.options.vocSection, this.options.wordNumber);
                     if (!state.wordData) {
                         Q.stageScene("endGame", 1, { score: this.options.score, msg: "Lesson Complete!" });
                         this.pause(); // Stop the scene
@@ -367,11 +389,11 @@ startGameBtn.addEventListener("click", function () {
                     state.timer = (audioDelay > 0 ? audioDelay + 3000 : 0) * -1;
                 }
                 else if (state.phase === 'wait' && state.timer > state.delay) {
-                    state.wordNumber++;
-                    if (state.wordNumber >= this.options.numWordsInSection) {
+                    this.options.wordNumber++;
+                    if (this.options.wordNumber >= this.options.numWordsInSection) {
                         if ((this.options.vocSectionNum + 1) < vocSections.length) {
                             this.options.vocSectionNum++;
-                            pickNewSection(this.options.vocSectionNum);
+                            pickNewSection(this, this.options.vocSectionNum);
                         } else {
                             state.wordData = null; // To trigger end condition
                         }
@@ -391,7 +413,7 @@ startGameBtn.addEventListener("click", function () {
 
             const spawnFlashcard = () => {
                 Q("FlashcardUI").destroy();
-                const wordData = pickNewWord(stage.options.vocSection, stage.options.wordNumber);
+                const wordData = pickWord(stage.options.vocSection, stage.options.wordNumber);
                 const wordType = displayWordContext(wordData);
                 const flashcard = stage.insert(new Q.FlashcardUI({
                     greek: wordData.greek,
@@ -452,15 +474,7 @@ startGameBtn.addEventListener("click", function () {
 
             stage.on("correctAnswer", () => {
                 scoreLabel.p.label = `Score: ${++stage.options.score}`;
-                stage.options.wordNumber++;
-                if (stage.options.wordNumber >= stage.options.numWordsInSection) {
-                    if ((stage.options.vocSectionNum + 1) < vocSections.length) {
-                        stage.options.vocSectionNum++;
-                        pickNewSection(stage.options.vocSectionNum);
-                    } else {
-                        Q.stageScene("endGame", 1, { score: stage.options.score, msg: "Game Conquered!" });
-                    }
-                }
+                nextWordOrSection(stage);
                 spawnFlashcard();
             });
 
@@ -476,15 +490,11 @@ startGameBtn.addEventListener("click", function () {
                 if (stage.options.lives <= 0) return;
                 stage.options.isWordAnswered = false;
 
-                if (!learningModeCheckboxElm.checked && randomSectionCheckboxElm.checked) {
-                    stage.options.vocSectionNum = Math.floor(Math.random() * vocSections.length);
-                    pickNewSection(stage.options.vocSectionNum);
+                if (!learningModeCheckboxElm.checked) {
+                    nextWordOrSection(stage);
                 }
 
-                const wordData = learningModeCheckboxElm.checked ?
-                    pickNewWord(stage.options.vocSection, stage.options.wordNumber)
-                    : pickNewWord(stage.options.vocSection, ++stage.options.wordNumber); // You can change this dynamically later
-
+                const wordData = pickWord(stage.options.vocSection, stage.options.wordNumber);
                 const wordType = displayWordContext(wordData);
 
                 stage.insert(new Q.Word({
@@ -517,15 +527,6 @@ startGameBtn.addEventListener("click", function () {
                         if (pronounceGreekCheckboxElm.checked) {
                             const audio = new Audio(`audio/${wordSpelling}back.mp3`);
                             audio.play().catch(e => console.warn(`Audio file for "${wordSpelling}back" not found or could not be played.`, e));
-                        }
-                    }
-
-                    if (learningModeCheckboxElm.checked) {
-                        ++stage.options.wordNumber;
-
-                        if (randomSectionCheckboxElm.checked) {
-                            stage.options.vocSectionNum = Math.floor(Math.random() * vocSections.length);
-                            pickNewSection(stage.options.vocSectionNum);
                         }
                     }
 
@@ -586,13 +587,18 @@ startGameBtn.addEventListener("click", function () {
                     stage.options.wordSpeed += 1;
                     speedElm.value = stage.options.wordSpeed;
                 }
+
+                if (learningModeCheckboxElm.checked) {
+                    nextWordOrSection(stage);
+                }
+
                 spawnWord();
 
                 if (stage.options.score > (stage.options.numWordsInSection + 10)) {
                     console.debug('Score above num. of words: ' + stage.options.score);
                     if ((stage.options.vocSectionNum + 1) < vocSections.length) {
                         ++stage.options.vocSectionNum;
-                        pickNewSection(stage.options.vocSectionNum);
+                        pickNewSection(stage, stage.options.vocSectionNum);
                         stage.options.accumulatedScore = (stage.options.accumulatedScore || 0) + stage.options.score;
                         stage.options.score = 0;
                         stage.options.wordSpeed = stage.options.initialWordSpeed; // Restore speed
@@ -640,7 +646,6 @@ startGameBtn.addEventListener("click", function () {
     let originalGameLoopCallback = null;
     let isPaused = false;
 
-
     function pauseGame() {
         if (isPaused) return;
 
@@ -649,7 +654,6 @@ startGameBtn.addEventListener("click", function () {
 
         // Replace with a dummy function to freeze updates
         Q.gameLoopCallbackWrapper = function () { };
-
         isPaused = true;
     }
 
@@ -699,14 +703,14 @@ function resizeGame() {
 }
 
 function throttle(fn, limit) {
-  let inThrottle;
-  return (...args) => {
-    if (!inThrottle) {
-      fn.apply(this, args);
-      inThrottle = true;
-      setTimeout(() => (inThrottle = false), limit);
-    }
-  };
+    let inThrottle;
+    return (...args) => {
+        if (!inThrottle) {
+            fn.apply(this, args);
+            inThrottle = true;
+            setTimeout(() => (inThrottle = false), limit);
+        }
+    };
 }
 
 const throttledFunction = throttle(() => {
