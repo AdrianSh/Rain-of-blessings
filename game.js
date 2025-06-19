@@ -162,7 +162,7 @@ startGameBtn.addEventListener("click", function () {
             stage.options.vocSectionNum = Math.floor(Math.random() * vocSections.length);
             pickNewSection(stage, stage.options.vocSectionNum);
         } else {
-            stage.options.wordNumber = randomWordNumber(stage.options.vocSectionNum, ++stage.options.wordNumber);
+            stage.options.wordNumber = randomWordNumber(stage.options.vocSection, ++stage.options.wordNumber);
             if (stage.options.wordNumber >= stage.options.numWordsInSection) {
                 if ((stage.options.vocSectionNum + 1) < vocSections.length) {
                     stage.options.vocSectionNum++;
@@ -389,15 +389,7 @@ startGameBtn.addEventListener("click", function () {
                     state.timer = (audioDelay > 0 ? audioDelay + 3000 : 0) * -1;
                 }
                 else if (state.phase === 'wait' && state.timer > state.delay) {
-                    this.options.wordNumber++;
-                    if (this.options.wordNumber >= this.options.numWordsInSection) {
-                        if ((this.options.vocSectionNum + 1) < vocSections.length) {
-                            this.options.vocSectionNum++;
-                            pickNewSection(this, this.options.vocSectionNum);
-                        } else {
-                            state.wordData = null; // To trigger end condition
-                        }
-                    }
+                    nextWordOrSection(this);
                     state.phase = 'new_word';
                     state.timer = 0;
                     this.items.forEach(e => this.remove(e));
